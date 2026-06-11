@@ -266,11 +266,53 @@ MODELS = {
 }
 
 EXAMPLE_PROMPTS = [
-    "In a world where dreams could be harvested, a young girl discovered she had the rarest dream of all",
-    "moonlight, forgotten castle, ancient magic, whispers",
-    "The last autumn leaf",
-    "A robot who learned to paint discovered that art was not about perfection",
-    "beneath the ocean, stars were born",
+    {
+        "prompt": "In a world where dreams could be harvested, a young girl discovered she had the rarest dream of all",
+        "reference": (
+            "In the sprawling city of Somnia, dreams were currency. Every night, "
+            "harvesters would enter the sleeping minds of citizens, carefully extracting "
+            "the shimmering threads of their nocturnal visions. Common dreams — of flying, "
+            "of falling, of forgotten exams — filled the markets like copper coins. But "
+            "rare dreams, the ones born of pure imagination, were worth fortunes. "
+            "Young Elara had always slept deeply, her dreams vivid and wild. When the "
+            "harvesters came to test her, their instruments blazed with light. She possessed "
+            "the dream of creation itself — the ability to dream new worlds into existence. "
+            "The harvesters trembled, for such a dream had not been seen in a thousand years. "
+            "Elara stood at the threshold of a power that could reshape reality, and she "
+            "knew that nothing would ever be the same again."
+        )
+    },
+    {
+        "prompt": "moonlight, forgotten castle, ancient magic, whispers",
+        "reference": (
+            "Under the pale moonlight, the forgotten castle emerged from the mist like a "
+            "memory long buried. Its towers, once proud sentinels of a kingdom now lost to "
+            "time, stood crumbling against the star-scattered sky. Within its walls, ancient "
+            "magic still pulsed — a faint heartbeat in the stones, a shimmer in the dust "
+            "that danced through broken windows. Whispers filled the corridors, voices of "
+            "those who had lived and loved and perished within these halls. They spoke of "
+            "battles fought with sword and spell, of a queen who had woven enchantments "
+            "into the very foundation. And now, as the moonlight crept through the grand "
+            "entrance, the whispers grew louder, as if the castle itself was awakening "
+            "from its centuries-long slumber, calling to those brave enough to listen."
+        )
+    },
+    {
+        "prompt": "The last autumn leaf",
+        "reference": (
+            "The last autumn leaf clung to the old oak tree with a stubbornness that defied "
+            "the bitter wind. All around it, the world had surrendered to the coming winter — "
+            "branches stood bare like skeletal fingers against the grey sky, and the ground "
+            "was carpeted in a mosaic of amber, crimson, and gold. But this one leaf held on. "
+            "It was small and weathered, its edges curled like the pages of an ancient book, "
+            "its color a deep, burnished copper. A young boy sat beneath the tree each day, "
+            "watching it flutter and twist but never fall. He saw in that leaf a kindred "
+            "spirit — a small thing refusing to let go, finding beauty in persistence. "
+            "When at last a December gust swept it free, it spiraled down gently into his "
+            "waiting hands, and he smiled, knowing that some endings are just beginnings "
+            "wearing a different cloak."
+        )
+    },
 ]
 
 SYSTEM_PROMPT = """You are a masterful creative writer and poet. When given a prompt, \
@@ -472,20 +514,32 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # API key input
-    api_key = st.text_input(
-        "Groq API Key",
-        type="password",
-        placeholder="gsk_...",
-        help="Get your free key at https://console.groq.com/keys",
-        value=os.getenv("GROQ_API_KEY", ""),
-    )
+    # Check if API key is provided by the server/environment
+    server_api_key = os.getenv("GROQ_API_KEY", "")
+    try:
+        if "GROQ_API_KEY" in st.secrets:
+            server_api_key = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
 
-    if api_key and api_key != "your_groq_api_key_here":
+    if server_api_key and server_api_key != "your_groq_api_key_here":
         st.markdown(
-            '<span class="status-pill status-success">✓ API Key Set</span>',
+            '<span class="status-pill status-success">✓ Server API Key Configured</span>',
             unsafe_allow_html=True,
         )
+        api_key = server_api_key
+    else:
+        api_key = st.text_input(
+            "Groq API Key",
+            type="password",
+            placeholder="gsk_...",
+            help="Get your free key at https://console.groq.com/keys",
+        )
+        if api_key:
+            st.markdown(
+                '<span class="status-pill status-success">✓ Custom API Key Set</span>',
+                unsafe_allow_html=True,
+            )
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
@@ -565,6 +619,8 @@ with st.sidebar:
 
 if "input_prompt_val" not in st.session_state:
     st.session_state["input_prompt_val"] = ""
+if "reference_text_val" not in st.session_state:
+    st.session_state["reference_text_val"] = ""
 
 # Prompt input
 st.markdown(
@@ -575,10 +631,12 @@ col_input, col_examples = st.columns([3, 1])
 
 with col_examples:
     st.markdown("**✨ Quick Prompts**")
-    for idx, ex in enumerate(EXAMPLE_PROMPTS):
+    for idx, ex_dict in enumerate(EXAMPLE_PROMPTS):
+        ex = ex_dict["prompt"]
         short = ex[:35] + "..." if len(ex) > 35 else ex
         if st.button(f"📌 {short}", key=f"ex_{idx}", use_container_width=True):
             st.session_state["input_prompt_val"] = ex
+            st.session_state["reference_text_val"] = ex_dict["reference"]
             st.rerun()
 
 with col_input:
@@ -593,13 +651,15 @@ with col_input:
     st.session_state["input_prompt_val"] = user_prompt
 
 # Optional reference text
-with st.expander("📖 Reference text (optional — for BLEU/ROUGE evaluation)"):
+with st.expander("📖 Reference text (optional — for BLEU/ROUGE evaluation)", expanded=True):
     reference_text = st.text_area(
         "Paste a reference story/poem for comparison",
-        height=100,
+        value=st.session_state["reference_text_val"],
+        height=200,
         placeholder="Leave empty to compute only Perplexity",
         label_visibility="collapsed",
     )
+    st.session_state["reference_text_val"] = reference_text
 
 # Generate button
 st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
